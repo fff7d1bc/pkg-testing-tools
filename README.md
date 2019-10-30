@@ -4,7 +4,7 @@ Package testing tool for arch stabilizations, regular bumps of packages and test
 
 ## Motivation
 
-Currently there's hardy any tool that beside arch testing can also do regular testing of packages specified by atoms. The only real alternative is `tatt`, which however is not really suitable for unattended testing, as it lacks some proper machine readable output formats and have limited quality of life features I've decided to write a tool that can be both unattended and flexible enough to allow end-user to exclude some USE flags from scope, like systemd or libressl, if neither of those are currently used on the system, with configurable switch to control how many combinations of USE flags one want to test. With optional machine-readable JSON format of reports, this tool be integrated into CI machintery with limited effort.
+Currently there's hardy any tool that beside arch testing can also do regular testing of packages specified by atoms. The only real alternative is `tatt`, which however is not really suitable for unattended testing, as it lacks some proper machine readable output formats and have limited quality of life features. I wanted a tool that can be both unattended and flexible enough to allow end-user to exclude some USE flags from scope, like systemd or libressl, if neither of those are currently used on the system, with configurable switch to control how many combinations of USE flags one want to test. With optional machine-readable JSON format of reports, this tool can be integrated into CI machintery with limited effort.
 
 ## Scope
 
