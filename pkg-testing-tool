@@ -1,0 +1,5 @@
+#!/usr/bin/env python3
+
+from src import pkg_testing_tool
+
+pkg_testing_tool.main()
