@@ -17,7 +17,11 @@ export FEATURES='buildpkg'
 export PKGDIR='/mnt/storage/binpkgs'
 export EMERGE_DEFAULT_OPTS='--usepkg'
 
-pkg-testing-tool --package '=dev-vcs/git-2.23.0-r1' --append-required-use '!libressl' --report /tmp/test-git-2.23.0-r1.json --test-feature-scope always
+pkg-testing-tool \
+    --package '=dev-vcs/git-2.23.0-r1' \
+    --append-required-use '!libressl' \
+    --report /tmp/test-git-2.23.0-r1.json \
+    --test-feature-scope always
 ```
 
 ## Switches
