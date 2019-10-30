@@ -12,6 +12,7 @@ The tool is limited to single runtime environment, lacks any network features li
 
 ## Example usage
 
+Taking adventage of binary packages, useful for chroots that share binary packages storage. The pkg-testing-tool will pass `--binpkg-changed-deps y` and `--binpkg-respect-use y` internally.
 ```
 export FEATURES='buildpkg' 
 export PKGDIR='/mnt/storage/binpkgs'
@@ -22,6 +23,14 @@ pkg-testing-tool \
     --append-required-use '!libressl' \
     --report /tmp/test-git-2.23.0-r1.json \
     --test-feature-scope always
+```
+
+With global flags, for example +threads on boost will require +threads on other packages.
+```
+pkg-testing-tool \
+    --package '=dev-libs/boost-1.71.0' \
+    --report /tmp/boost.json \
+    --use-flags-scope global
 ```
 
 ## Switches
