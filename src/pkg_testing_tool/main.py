@@ -177,8 +177,10 @@ def pkg_testing_tool(args, extra_args):
             else:
                 test_feature_toggle = False
 
-            # Test the default useflags set.
-            run_testing(args.package, args.use_flags_scope, [], test_feature_toggle, results)
+            if not use_combinations or args.test_feature_scope == 'once':
+                if use_combinations and args.test_feature_scope == 'once':
+                    einfo("Additional run with FEATURES=test and default USE flags since test-feature-scope is set to 'once'.")
+                run_testing(args.package, args.use_flags_scope, [], test_feature_toggle, results)
 
     failures = []
     for entry in results:
