@@ -4,6 +4,7 @@ import os
 import subprocess
 import json
 from tempfile import NamedTemporaryFile
+import portage
 
 from .use import get_package_flags, get_use_combinations
 
@@ -88,11 +89,15 @@ def edie(msg):
 
 
 def run_testing(package, use_flags_scope, flags_set, test_feature_toggle, results):
+    cpv = portage.dep.dep_getcpv(package)
+    cp = portage.versions.pkgsplit(cpv)[0]
+
     emerge_cmdline = [
         'emerge',
         '--verbose', 'y',
         '--autounmask', 'n',
-        package,
+        '--usepkg-exclude', cp,
+        package
     ]
 
     env = os.environ.copy()
