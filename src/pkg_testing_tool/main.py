@@ -91,8 +91,6 @@ def run_testing(package, use_flags_scope, flags_set, test_feature_toggle, result
     emerge_cmdline = [
         'emerge',
         '--verbose', 'y',
-        '--binpkg-changed-deps', 'y',
-        '--binpkg-respect-use', 'y',
         '--autounmask', 'n',
         package,
     ]
