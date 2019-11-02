@@ -118,8 +118,6 @@ def run_testing(package, use_flags_scope, flags_set, test_feature_toggle, result
                 )
             )
             tmp_package_use.flush()
-
-
         emerge_result = subprocess.run(emerge_cmdline, env=env)
 
     results.append(
@@ -169,7 +167,17 @@ def pkg_testing_tool(args, extra_args):
                 else:
                     test_feature_toggle = False
 
+                use_combinations_pass = 0
                 for flags_set in use_combinations:
+                    use_combinations_pass += 1
+                    einfo(
+                        "Running {pass_num} of {total} build for '{package}' with '{flags}' USE flags ...".format(
+                            pass_num=use_combinations_pass,
+                            total=len(use_combinations),
+                            package=args.package,
+                            flags=" ".join(flags_set)
+                        )
+                    )
                     run_testing(args.package, args.use_flags_scope, flags_set, test_feature_toggle, results)
 
             if args.test_feature_scope in ['once', 'always']:
