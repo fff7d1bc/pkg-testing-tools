@@ -2,7 +2,6 @@
 
 import portage
 import random
-from itertools import product
 
 
 def iuse_match_always_true(flag):
@@ -63,30 +62,44 @@ def get_package_flags(atom):
     ]
 
 
+def get_use_flags_toggles(index, iuse):
+    on_off_switches = []
+
+    for i in range(len(iuse)):
+        if ((2**i) & index):
+            on_off_switches.append("")
+        else:
+            on_off_switches.append("-")
+
+    flags = list("".join(flag) for flag in list(zip(on_off_switches, iuse)))
+
+    return flags
+
+
 def get_use_combinations(iuse, ruse, max_use_combinations):
-    all_combinations = list(product(['', '-'], repeat=len(iuse)))
+    all_combinations_count = 2**len(iuse)
 
     valid_use_flags_combinations = []
 
-    if len(all_combinations) > max_use_combinations:
+    if all_combinations_count > max_use_combinations:
         random.seed()
         checked_combinations = set()
 
-        while len(valid_use_flags_combinations) < max_use_combinations and len(checked_combinations) < len(all_combinations):
-            index = random.randint(0, len(all_combinations)-1)
+        while len(valid_use_flags_combinations) < max_use_combinations and len(checked_combinations) < all_combinations_count:
+            index = random.randint(0, all_combinations_count-1)
 
             if index in checked_combinations:
                 continue
             else:
                 checked_combinations.add(index)
 
-            flags = list("".join(flag) for flag in list(zip(all_combinations[index], iuse)))
+            flags = get_use_flags_toggles(index, iuse)
 
             if portage.dep.check_required_use(" ".join(ruse), flags, iuse_match_always_true):
                 valid_use_flags_combinations.append(flags)
     else:
-        for index in range(0, len(all_combinations)):
-            flags = list("".join(flag) for flag in list(zip(all_combinations[index], iuse)))
+        for index in range(0, all_combinations_count):
+            flags = get_use_flags_toggles(index, iuse)
 
             if portage.dep.check_required_use(" ".join(ruse), flags, iuse_match_always_true):
                 valid_use_flags_combinations.append(flags)
