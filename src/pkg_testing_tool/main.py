@@ -119,6 +119,7 @@ def run_testing(package, use_flags_scope, flags_set, test_feature_toggle, result
             )
             tmp_package_use.flush()
         emerge_result = subprocess.run(emerge_cmdline, env=env)
+        print('')
 
     results.append(
         {
