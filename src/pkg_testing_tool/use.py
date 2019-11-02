@@ -30,6 +30,7 @@ def filter_out_use_flags(flags):
             'debug',
             'doc',
             'test',
+            'elibc_',
             'eglibc_',
             'video_cards_',
             'linguas_',
@@ -37,7 +38,8 @@ def filter_out_use_flags(flags):
             'abi_',
             'python_target_',
             'python_targets_',
-            'python_single_target_'
+            'python_single_target_',
+            'ruby_targets_'
         )):
             new_flags.append(flag)
 
