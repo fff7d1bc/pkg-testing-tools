@@ -1,11 +1,11 @@
 import argparse
+import datetime
 import sys
 import os
 import subprocess
 import json
-from tempfile import NamedTemporaryFile
 import portage
-
+from tempfile import NamedTemporaryFile
 from .use import get_package_flags, get_use_combinations
 
 
@@ -88,7 +88,9 @@ def edie(msg):
     sys.exit(1)
 
 
-def run_testing(package, use_flags_scope, flags_set, test_feature_toggle, results):
+def run_testing(package, use_flags_scope, flags_set, test_feature_toggle):
+    time_started_utc = datetime.datetime.utcnow().replace(microsecond=0).isoformat()
+
     cpv = portage.dep.dep_getcpv(package)
     cp = portage.versions.pkgsplit(cpv)[0]
 
@@ -124,13 +126,16 @@ def run_testing(package, use_flags_scope, flags_set, test_feature_toggle, result
         emerge_result = subprocess.run(emerge_cmdline, env=env)
         print('')
 
-    results.append(
-        {
-            'flags': flags_set,
+        return {
+            'use_flags': " ".join(flags_set),
             'exit_code': emerge_result.returncode,
-            'test_feature': bool('test' in env['FEATURES'].split())
+            'features': portage.settings.get('FEATURES'),
+            'emerge_default_opts': portage.settings.get('EMERGE_DEFAULT_OPTS'),
+            'emerge_cmdline': " ".join(emerge_cmdline),
+            'time_started_utc': time_started_utc,
+            'time_finished_utc': datetime.datetime.utcnow().replace(microsecond=0).isoformat(),
+            'atom': package
         }
-    )
 
 
 def pkg_testing_tool(args, extra_args):
@@ -144,7 +149,7 @@ def pkg_testing_tool(args, extra_args):
     else:
         use_combinations = None
 
-    results = []
+    results = {}
 
     # Unconditionally unmask and keyword selected package by atom.
     # No much of a reason to check what arch we're running or if package is masked in first place.
@@ -182,7 +187,7 @@ def pkg_testing_tool(args, extra_args):
                             flags=" ".join(flags_set)
                         )
                     )
-                    run_testing(args.package, args.use_flags_scope, flags_set, test_feature_toggle, results)
+                    results.setdefault(args.package, []).append(run_testing(args.package, args.use_flags_scope, flags_set, test_feature_toggle))
 
             if args.test_feature_scope in ['once', 'always']:
                 test_feature_toggle = True
@@ -192,21 +197,28 @@ def pkg_testing_tool(args, extra_args):
             if not use_combinations or args.test_feature_scope == 'once':
                 if use_combinations and args.test_feature_scope == 'once':
                     einfo("Additional run with FEATURES=test and default USE flags since test-feature-scope is set to 'once'.")
-                run_testing(args.package, args.use_flags_scope, [], test_feature_toggle, results)
+                results.setdefault(args.package, []).append(run_testing(args.package, args.use_flags_scope, [], test_feature_toggle))
 
     failures = []
-    for entry in results:
-        if entry['exit_code'] != 0:
-            failures.append(entry)
+    for package_results in results:
+        for pkg_pass in results[package_results]:
+            if pkg_pass['exit_code'] != 0:
+                failures.append(pkg_pass)
 
     if args.report:
         with open(args.report, 'w') as report:
             report.write(json.dumps(results, indent=4, sort_keys=True))
 
     if len(failures) > 0:
+        eerror('Not all runs were successful.')
         for entry in failures:
-            print("testing failed with flags: '{flags}'".format(flags=" ".join(entry['flags'])))
-        edie("Testing of '{atom}' resulted in some failures.".format(atom=args.package))
+            print(
+                "atom: {atom}, USE flags: '{use_flags}'".format(
+                    atom=entry['atom'],
+                    use_flags=entry['use_flags']
+                )
+            )
+        sys.exit(1)
     else:
         einfo('All good.')
 
