@@ -23,12 +23,7 @@ def strip_use_flags(flags):
 def filter_out_use_flags(flags):
     new_flags = []
 
-    # some flags that *most* likely we shouldn't shuffle and test.
-    for flag in flags:
-        if not flag.startswith((
-            'debug',
-            'doc',
-            'test',
+    ignore_flags_with_prefix = (
             'elibc_',
             'eglibc_',
             'video_cards_',
@@ -39,8 +34,22 @@ def filter_out_use_flags(flags):
             'python_target_',
             'python_targets_',
             'python_single_target_',
-            'ruby_targets_'
-        )):
+            'ruby_targets_',
+            'cpu_flags_'
+    )
+
+    ignore_flags = set([
+            'debug',
+            'doc',
+            'test',
+            'selinux',
+            'split-usr',
+            'pic'
+    ])
+
+    # some flags that *most* likely we shouldn't shuffle and test.
+    for flag in flags:
+        if not flag.startswith(ignore_flags_with_prefix) and flag not in ignore_flags:
             new_flags.append(flag)
 
     return new_flags
