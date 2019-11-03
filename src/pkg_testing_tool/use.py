@@ -33,6 +33,7 @@ def filter_out_use_flags(flags):
             'eglibc_',
             'video_cards_',
             'linguas_',
+            'l10n_',
             'kernel_',
             'abi_',
             'python_target_',
