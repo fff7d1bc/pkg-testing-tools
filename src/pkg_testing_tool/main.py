@@ -89,7 +89,7 @@ def edie(msg):
 
 
 def run_testing(package, use_flags_scope, flags_set, test_feature_toggle):
-    time_started_utc = datetime.datetime.utcnow().replace(microsecond=0).isoformat()
+    time_started = datetime.datetime.now().replace(microsecond=0).isoformat()
 
     cpv = portage.dep.dep_getcpv(package)
     cp = portage.versions.pkgsplit(cpv)[0]
@@ -132,9 +132,11 @@ def run_testing(package, use_flags_scope, flags_set, test_feature_toggle):
             'features': portage.settings.get('FEATURES'),
             'emerge_default_opts': portage.settings.get('EMERGE_DEFAULT_OPTS'),
             'emerge_cmdline': " ".join(emerge_cmdline),
-            'time_started_utc': time_started_utc,
-            'time_finished_utc': datetime.datetime.utcnow().replace(microsecond=0).isoformat(),
-            'atom': package
+            'atom': package,
+            'time': {
+                'started': time_started,
+                'finished': datetime.datetime.now().replace(microsecond=0).isoformat(),
+            }
         }
 
 
