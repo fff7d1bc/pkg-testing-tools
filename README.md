@@ -46,36 +46,37 @@ pkg-testing-tool --use-flags-scope global --package '=dev-libs/boost-1.71.0'
 ## Switches
 
 ```
-usage: pkg-testing-tool [-h] --package PACKAGE
-                        [--append-required-use APPEND_REQUIRED_USE]
-                        [--max-use-combinations MAX_USE_COMBINATIONS]
-                        [--use-flags-scope {local,global}]
-                        [--test-feature-scope {once,always,never}]
-                        [--report REPORT]
-
-optional arguments:
-  -h, --help            show this help message and exit
-
-Required:
-  --package PACKAGE     Valid Portage package atom, like '=app-
-                        category/foo-1.2.3'.
-
-Optional:
-  --append-required-use APPEND_REQUIRED_USE
-                        Append REQUIRED_USE entries, useful for blacklisting
-                        flags, like '!systemd !libressl' on systems that runs
-                        neither. The more complex REQUIRED_USE, the longer it
-                        take to get USE flags combinations.
-  --max-use-combinations MAX_USE_COMBINATIONS
-                        Generate up to N combinations of USE flags, the
-                        combinations are random out of those which pass check
-                        for REQUIRED_USE. Default: 16.
-  --use-flags-scope {local,global}
-                        Local sets USE flags for package specified by atom,
-                        global sets flags for */*.
-  --test-feature-scope {once,always,never}
-                        Enables FEATURES='test' once, for default use flags,
-                        always, for every run or never. Default: once.
-  --report REPORT       Save report in JSON format under specified path.
-
+    usage: pkg-testing-tool [-h] -p PACKAGE_ATOM
+                            [--append-required-use APPEND_REQUIRED_USE]
+                            [--max-use-combinations MAX_USE_COMBINATIONS]
+                            [--use-flags-scope {local,global}]
+                            [--test-feature-scope {once,always,never}]
+                            [--report REPORT]
+    
+    optional arguments:
+      -h, --help            show this help message and exit
+    
+    Required:
+      -p PACKAGE_ATOM, --package-atom PACKAGE_ATOM
+                            Valid Portage package atom, like '=app-
+                            category/foo-1.2.3'. Can be specified multiple times
+                            to unmask/keyword all of them and test them one by
+                            one.
+    
+    Optional:
+      --append-required-use APPEND_REQUIRED_USE
+                            Append REQUIRED_USE entries, useful for blacklisting
+                            flags, like '!systemd !libressl' on systems that runs
+                            neither. The more complex REQUIRED_USE, the longer it
+                            take to get USE flags combinations.
+      --max-use-combinations MAX_USE_COMBINATIONS
+                            Generate up to N combinations of USE flags, the
+                            combinations are random out of those which pass check
+                            for REQUIRED_USE. Default: 16.
+      --use-flags-scope {local,global}
+                            Local sets USE flags for package specified by atom,
+                            global sets flags for */*.
+      --test-feature-scope {once,always,never}
+                            Enables FEATURES='test' once, for default use flags,
+                            always, for every run or never. Default: once.
 ```
