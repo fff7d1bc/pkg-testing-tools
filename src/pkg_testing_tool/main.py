@@ -31,8 +31,8 @@ def process_args():
 
     required = parser.add_argument_group('Required')
     required.add_argument(
-        '--package', action='store', type=str, required=True,
-        help="Valid Portage package atom, like '=app-category/foo-1.2.3'."
+        '-p', '--package-atom', action='append', required=True,
+        help="Valid Portage package atom, like '=app-category/foo-1.2.3'. Can be specified multiple times to unmask/keyword all of them and test them one by one."
     )
 
     optional = parser.add_argument_group('Optional')
@@ -140,8 +140,10 @@ def run_testing(package, use_flags_scope, flags_set, test_feature_toggle):
         }
 
 
-def pkg_testing_tool(args, extra_args):
-    iuse, ruse = get_package_flags(args.package)
+def test_package(atom, args):
+    results = []
+
+    iuse, ruse = get_package_flags(atom)
 
     if args.append_required_use:
         ruse.append(args.append_required_use)
@@ -151,61 +153,74 @@ def pkg_testing_tool(args, extra_args):
     else:
         use_combinations = None
 
-    results = {}
+    if use_combinations:
+        if args.test_feature_scope == 'always':
+            test_feature_toggle = True
+        else:
+            test_feature_toggle = False
 
-    # Unconditionally unmask and keyword selected package by atom.
+        use_combinations_pass = 0
+        for flags_set in use_combinations:
+            use_combinations_pass += 1
+            einfo(
+                "Running {pass_num} of {total} build for '{package}' with '{flags}' USE flags ...".format(
+                    pass_num=use_combinations_pass,
+                    total=len(use_combinations),
+                    package=atom,
+                    flags=" ".join(flags_set)
+                )
+            )
+
+            results.append(
+                run_testing(atom, args.use_flags_scope, flags_set, test_feature_toggle)
+            )
+
+    if args.test_feature_scope in ['once', 'always']:
+        test_feature_toggle = True
+    else:
+        test_feature_toggle = False
+
+    if not use_combinations or args.test_feature_scope == 'once':
+        if use_combinations and args.test_feature_scope == 'once':
+            einfo("Additional run for '{package}' with FEATURES=test and default USE flags since test-feature-scope is set to 'once'.".format(package=atom))
+        elif args.test_feature_scope == 'never':
+            einfo("Running build for '{package}' with default USE flags ...".format(package=atom))
+        else:
+            einfo("Running build for '{package}' with default USE flags and FEATURES=test ...".format(package=atom))
+
+        results.append(
+            run_testing(atom, args.use_flags_scope, [], test_feature_toggle)
+        )
+
+    return results
+
+
+def pkg_testing_tool(args, extra_args):
+    results = []
+
+    # Unconditionally unmask and keyword packages selected by atom.
     # No much of a reason to check what arch we're running or if package is masked in first place.
     with \
         temporary_package_file('package.accept_keywords') as tmp_package_accept_keywords, \
         temporary_package_file('package.unmask') as tmp_package_unmask:
-            tmp_package_accept_keywords.write(
-                "{atom} **".format(
-                    atom=args.package
-                )
-            )
-            tmp_package_accept_keywords.flush()
 
-            tmp_package_unmask.write(
-                "{atom}".format(
-                    atom=args.package
-                )
-            )
+            # Unmask and keyword all the packages prior to testing them.
+            for atom in args.package_atom:
+                tmp_package_accept_keywords.write("{atom} **\n".format(atom=atom))
+                tmp_package_unmask.write("{atom}\n".format(atom=atom))
+
+            tmp_package_accept_keywords.flush()
             tmp_package_unmask.flush()
 
-            if use_combinations:
-                if args.test_feature_scope == 'always':
-                    test_feature_toggle = True
-                else:
-                    test_feature_toggle = False
-
-                use_combinations_pass = 0
-                for flags_set in use_combinations:
-                    use_combinations_pass += 1
-                    einfo(
-                        "Running {pass_num} of {total} build for '{package}' with '{flags}' USE flags ...".format(
-                            pass_num=use_combinations_pass,
-                            total=len(use_combinations),
-                            package=args.package,
-                            flags=" ".join(flags_set)
-                        )
-                    )
-                    results.setdefault(args.package, []).append(run_testing(args.package, args.use_flags_scope, flags_set, test_feature_toggle))
-
-            if args.test_feature_scope in ['once', 'always']:
-                test_feature_toggle = True
-            else:
-                test_feature_toggle = False
-
-            if not use_combinations or args.test_feature_scope == 'once':
-                if use_combinations and args.test_feature_scope == 'once':
-                    einfo("Additional run with FEATURES=test and default USE flags since test-feature-scope is set to 'once'.")
-                results.setdefault(args.package, []).append(run_testing(args.package, args.use_flags_scope, [], test_feature_toggle))
+            for atom in args.package_atom:
+                results.extend(
+                    test_package(atom, args)
+                )
 
     failures = []
-    for package_results in results:
-        for pkg_pass in results[package_results]:
-            if pkg_pass['exit_code'] != 0:
-                failures.append(pkg_pass)
+    for item in results:
+        if item['exit_code'] != 0:
+            failures.append(item)
 
     if args.report:
         with open(args.report, 'w') as report:
