@@ -31,7 +31,7 @@ install -m 0750 -o portage -g portage -d "${CCACHE_DIR}"
 Rather paranoid run of `git` without libressl, with json report saved to file, with FEATURES=test enabled on every run
 ```
 pkg-testing-tool \
-    --package '=dev-vcs/git-2.23.0-r1' \
+    --package-atom  '=dev-vcs/git-2.23.0-r1' \
     --append-required-use '!libressl' \
     --report /tmp/test-git-2.23.0-r1.json \
     --test-feature-scope always
@@ -40,7 +40,7 @@ pkg-testing-tool \
 
 Local to package atom flags are sometimes not desired, especially when one flag on package we test requires the same flag on it's dependencies. For this, one should switch to global flags, that work as if someone set the `$USE` environmental variable with them.
 ```
-pkg-testing-tool --use-flags-scope global --package '=dev-libs/boost-1.71.0'
+pkg-testing-tool --use-flags-scope global --package-atom '=dev-libs/boost-1.71.0'
 ```
 
 ## Switches
