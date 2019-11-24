@@ -9,7 +9,7 @@ from tempfile import NamedTemporaryFile
 from .use import get_package_flags, get_use_combinations
 
 
-def temporary_package_file(directory_name):
+def temp_portage_config(directory_name):
     target_location = os.path.join('/etc/portage', directory_name)
 
     if not os.path.isdir(target_location):
@@ -114,7 +114,7 @@ def run_testing(package, use_flags_scope, flags_set, test_feature_toggle):
     else:
         env['FEATURES'] = features
 
-    with temporary_package_file('package.use') as tmp_package_use:
+    with temp_portage_config('package.use') as tmp_package_use:
         if flags_set:
             tmp_package_use.write(
                 '{prefix} {flags}\n'.format(
@@ -201,8 +201,8 @@ def pkg_testing_tool(args, extra_args):
     # Unconditionally unmask and keyword packages selected by atom.
     # No much of a reason to check what arch we're running or if package is masked in first place.
     with \
-        temporary_package_file('package.accept_keywords') as tmp_package_accept_keywords, \
-        temporary_package_file('package.unmask') as tmp_package_unmask:
+        temp_portage_config('package.accept_keywords') as tmp_package_accept_keywords, \
+        temp_portage_config('package.unmask') as tmp_package_unmask:
 
             # Unmask and keyword all the packages prior to testing them.
             for atom in args.package_atom:
