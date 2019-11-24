@@ -93,12 +93,16 @@ def get_package_metadata(atom):
 
     cp, version, revision = portage.versions.pkgsplit(cpv)
 
+    iuse, ruse = get_package_flags(cpv)
+
     return {
         'atom': atom,
         'cp': cp,
         'cpv': cpv,
         'version': version,
-        'revision': revision
+        'revision': revision,
+        'iuse': iuse,
+        'ruse': ruse
     }
 
 
@@ -156,13 +160,11 @@ def test_package(atom, args):
 
     package_metadata = get_package_metadata(atom)
 
-    iuse, ruse = get_package_flags(package_metadata['cpv'])
-
     if args.append_required_use:
         ruse.append(args.append_required_use)
 
-    if iuse:
-        use_combinations = get_use_combinations(iuse, ruse, args.max_use_combinations)
+    if package_metadata['iuse']:
+        use_combinations = get_use_combinations(package_metadata['iuse'], package_metadata['ruse'], args.max_use_combinations)
     else:
         use_combinations = None
 
