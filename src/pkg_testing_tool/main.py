@@ -161,7 +161,7 @@ def test_package(atom, args):
     package_metadata = get_package_metadata(atom)
 
     if args.append_required_use:
-        ruse.append(args.append_required_use)
+        package_metadata['ruse'].append(args.append_required_use)
 
     if package_metadata['iuse']:
         use_combinations = get_use_combinations(package_metadata['iuse'], package_metadata['ruse'], args.max_use_combinations)
