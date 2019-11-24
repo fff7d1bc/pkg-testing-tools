@@ -10,6 +10,14 @@ Currently there's hardy any tool that beside arch testing can also do regular te
 
 The tool is limited to single runtime environment, lacks any network features like remote parallel testing and bugzilla integration -- all of those are supposed to be supported by another tool, while leaving pkg-testing-tool as a single tool for single job.
 
+## Prerequisites
+
+One need to have `env` and `package.*` under /etc/portage as directories in order for the tool to work.
+
+```
+install -m 0750 -o portage -g portage -d /etc/portage/env /etc/portage/package.{accept_keywords,env,unmask,use}
+```
+
 ## How to use
 
 It's highly recommend to use `pkg-testing-tool` along with `binpkgs`, `ccache` and parallel `emerge` jobs, especially when using a clean environment like chroot or virtual machine with shared binary packages. Unless `make.conf` already have all of those enabled, one can use something like the code below to switch those features on, although it should be tweaked depending on one's capacity:
