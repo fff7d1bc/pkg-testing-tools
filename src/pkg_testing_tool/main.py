@@ -121,38 +121,51 @@ def run_testing(package_metadata, use_flags_scope, flags_set, test_feature_toggl
 
     features = 'multilib-strict collision-protect sandbox userpriv usersandbox'
 
-    if test_feature_toggle:
-        features = '{} {}'.format(features, 'test')
-
     if 'FEATURES' in env:
         env['FEATURES'] = "{} {}".format(env['FEATURES'], features)
     else:
         env['FEATURES'] = features
 
-    with temp_portage_config('package.use') as tmp_package_use:
-        if flags_set:
-            tmp_package_use.write(
-                '{prefix} {flags}\n'.format(
-                    prefix=('*/*' if use_flags_scope == 'global' else package_metadata['atom']),
-                    flags=" ".join(flags_set)
-                )
-            )
-            tmp_package_use.flush()
-        emerge_result = subprocess.run(emerge_cmdline, env=env)
-        print('')
+    with \
+        temp_portage_config('package.use') as tmp_package_use, \
+        temp_portage_config('package.env') as tmp_package_env, \
+        temp_portage_config('env') as tmp_portage_env:
 
-        return {
-            'use_flags': " ".join(flags_set),
-            'exit_code': emerge_result.returncode,
-            'features': portage.settings.get('FEATURES'),
-            'emerge_default_opts': portage.settings.get('EMERGE_DEFAULT_OPTS'),
-            'emerge_cmdline': " ".join(emerge_cmdline),
-            'atom': package_metadata['atom'],
-            'time': {
-                'started': time_started,
-                'finished': datetime.datetime.now().replace(microsecond=0).isoformat(),
-            }
+            if test_feature_toggle:
+                tmp_portage_env.write('FEATURES="test"\n')
+                tmp_portage_env.flush()
+
+                tmp_package_env.write(
+                    "{cp} {env_file}\n".format(
+                        cp=package_metadata['cp'],
+                        env_file=os.path.basename(tmp_portage_env.name)
+                    )
+                )
+                tmp_package_env.flush()
+
+            if flags_set:
+                tmp_package_use.write(
+                    '{prefix} {flags}\n'.format(
+                        prefix=('*/*' if use_flags_scope == 'global' else package_metadata['atom']),
+                        flags=" ".join(flags_set)
+                    )
+                )
+                tmp_package_use.flush()
+            emerge_result = subprocess.run(emerge_cmdline, env=env)
+            print('')
+
+    return {
+        'use_flags': " ".join(flags_set),
+        'exit_code': emerge_result.returncode,
+        'features': portage.settings.get('FEATURES'),
+        'emerge_default_opts': portage.settings.get('EMERGE_DEFAULT_OPTS'),
+        'emerge_cmdline': " ".join(emerge_cmdline),
+        'atom': package_metadata['atom'],
+        'time': {
+            'started': time_started,
+            'finished': datetime.datetime.now().replace(microsecond=0).isoformat(),
         }
+    }
 
 
 def test_package(atom, args):
