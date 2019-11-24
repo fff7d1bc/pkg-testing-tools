@@ -88,18 +88,29 @@ def edie(msg):
     sys.exit(1)
 
 
-def run_testing(package, use_flags_scope, flags_set, test_feature_toggle):
-    time_started = datetime.datetime.now().replace(microsecond=0).isoformat()
+def get_package_metadata(atom):
+    cpv = portage.dep.dep_getcpv(atom)
 
-    cpv = portage.dep.dep_getcpv(package)
-    cp = portage.versions.pkgsplit(cpv)[0]
+    cp, version, revision = portage.versions.pkgsplit(cpv)
+
+    return {
+        'atom': atom,
+        'cp': cp,
+        'cpv': cpv,
+        'version': version,
+        'revision': revision
+    }
+
+
+def run_testing(package_metadata, use_flags_scope, flags_set, test_feature_toggle):
+    time_started = datetime.datetime.now().replace(microsecond=0).isoformat()
 
     emerge_cmdline = [
         'emerge',
         '--verbose', 'y',
         '--autounmask', 'n',
-        '--usepkg-exclude', cp,
-        package
+        '--usepkg-exclude', package_metadata['cp'],
+        package_metadata['atom']
     ]
 
     env = os.environ.copy()
@@ -118,7 +129,7 @@ def run_testing(package, use_flags_scope, flags_set, test_feature_toggle):
         if flags_set:
             tmp_package_use.write(
                 '{prefix} {flags}\n'.format(
-                    prefix=('*/*' if use_flags_scope == 'global' else package),
+                    prefix=('*/*' if use_flags_scope == 'global' else package_metadata['atom']),
                     flags=" ".join(flags_set)
                 )
             )
@@ -132,7 +143,7 @@ def run_testing(package, use_flags_scope, flags_set, test_feature_toggle):
             'features': portage.settings.get('FEATURES'),
             'emerge_default_opts': portage.settings.get('EMERGE_DEFAULT_OPTS'),
             'emerge_cmdline': " ".join(emerge_cmdline),
-            'atom': package,
+            'atom': package_metadata['atom'],
             'time': {
                 'started': time_started,
                 'finished': datetime.datetime.now().replace(microsecond=0).isoformat(),
@@ -143,7 +154,9 @@ def run_testing(package, use_flags_scope, flags_set, test_feature_toggle):
 def test_package(atom, args):
     results = []
 
-    iuse, ruse = get_package_flags(atom)
+    package_metadata = get_package_metadata(atom)
+
+    iuse, ruse = get_package_flags(package_metadata['cpv'])
 
     if args.append_required_use:
         ruse.append(args.append_required_use)
@@ -166,13 +179,13 @@ def test_package(atom, args):
                 "Running {pass_num} of {total} build for '{package}' with '{flags}' USE flags ...".format(
                     pass_num=use_combinations_pass,
                     total=len(use_combinations),
-                    package=atom,
+                    package=package_metadata['atom'],
                     flags=" ".join(flags_set)
                 )
             )
 
             results.append(
-                run_testing(atom, args.use_flags_scope, flags_set, test_feature_toggle)
+                run_testing(package_metadata, args.use_flags_scope, flags_set, test_feature_toggle)
             )
 
     if args.test_feature_scope in ['once', 'always']:
@@ -182,14 +195,14 @@ def test_package(atom, args):
 
     if not use_combinations or args.test_feature_scope == 'once':
         if use_combinations and args.test_feature_scope == 'once':
-            einfo("Additional run for '{package}' with FEATURES=test and default USE flags since test-feature-scope is set to 'once'.".format(package=atom))
+            einfo("Additional run for '{package}' with FEATURES=test and default USE flags since test-feature-scope is set to 'once'.".format(package=package_metadata['atom']))
         elif args.test_feature_scope == 'never':
-            einfo("Running build for '{package}' with default USE flags ...".format(package=atom))
+            einfo("Running build for '{package}' with default USE flags ...".format(package=package_metadata['atom']))
         else:
-            einfo("Running build for '{package}' with default USE flags and FEATURES=test ...".format(package=atom))
+            einfo("Running build for '{package}' with default USE flags and FEATURES=test ...".format(package=package_metadata['atom']))
 
         results.append(
-            run_testing(atom, args.use_flags_scope, [], test_feature_toggle)
+            run_testing(package_metadata, args.use_flags_scope, [], test_feature_toggle)
         )
 
     return results
