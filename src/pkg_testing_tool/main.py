@@ -160,6 +160,7 @@ def run_testing(package_metadata, use_flags_scope, flags_set, test_feature_toggl
         'features': portage.settings.get('FEATURES'),
         'emerge_default_opts': portage.settings.get('EMERGE_DEFAULT_OPTS'),
         'emerge_cmdline': " ".join(emerge_cmdline),
+        'test_feature_toggle': test_feature_toggle,
         'atom': package_metadata['atom'],
         'time': {
             'started': time_started,
