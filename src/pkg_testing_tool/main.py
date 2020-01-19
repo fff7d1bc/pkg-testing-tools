@@ -114,6 +114,7 @@ def run_testing(package_metadata, use_flags_scope, flags_set, test_feature_toggl
         '--verbose', 'y',
         '--autounmask', 'n',
         '--usepkg-exclude', package_metadata['cp'],
+        '--deep', '--backtrack', '300',
         package_metadata['atom']
     ]
 
