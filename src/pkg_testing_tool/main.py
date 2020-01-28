@@ -95,12 +95,15 @@ def get_package_metadata(atom):
 
     iuse, ruse = get_package_flags(cpv)
 
+    phases = portage.portdb.aux_get(cpv, ['DEFINED_PHASES'])[0].split()
+
     return {
         'atom': atom,
         'cp': cp,
         'cpv': cpv,
         'version': version,
         'revision': revision,
+        'has_tests': ('test' in phases),
         'iuse': iuse,
         'ruse': ruse
     }
@@ -184,7 +187,7 @@ def test_package(atom, args):
         use_combinations = None
 
     if use_combinations:
-        if args.test_feature_scope == 'always':
+        if package_metadata['has_tests'] and args.test_feature_scope == 'always':
             test_feature_toggle = True
         else:
             test_feature_toggle = False
@@ -205,22 +208,25 @@ def test_package(atom, args):
                 run_testing(package_metadata, args.use_flags_scope, flags_set, test_feature_toggle)
             )
 
-    if args.test_feature_scope in ['once', 'always']:
-        test_feature_toggle = True
+        if package_metadata['has_tests'] and args.test_feature_scope == 'once':
+            einfo(
+                "Additional run for '{package}' with FEATURES=test and default USE flags since test-feature-scope is set to 'once'.".format(
+                    package=package_metadata['atom'])
+                )
+            results.append(
+                run_testing(package_metadata, args.use_flags_scope, [], True)
+            )
     else:
-        test_feature_toggle = False
-
-    if not use_combinations or args.test_feature_scope == 'once':
-        if use_combinations and args.test_feature_scope == 'once':
-            einfo("Additional run for '{package}' with FEATURES=test and default USE flags since test-feature-scope is set to 'once'.".format(package=package_metadata['atom']))
-        elif args.test_feature_scope == 'never':
+        if not package_metadata['has_tests'] or args.test_feature_scope == 'never':
             einfo("Running build for '{package}' with default USE flags ...".format(package=package_metadata['atom']))
+            results.append(
+                run_testing(package_metadata, args.use_flags_scope, [], False)
+            )
         else:
             einfo("Running build for '{package}' with default USE flags and FEATURES=test ...".format(package=package_metadata['atom']))
-
-        results.append(
-            run_testing(package_metadata, args.use_flags_scope, [], test_feature_toggle)
-        )
+            results.append(
+                run_testing(package_metadata, args.use_flags_scope, [], True)
+            )
 
     return results
 
