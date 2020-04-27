@@ -1,29 +1,34 @@
 import argparse
 import datetime
-import sys
+import json
 import os
 import subprocess
-import json
-import portage
+import sys
+from contextlib import ExitStack
 from tempfile import NamedTemporaryFile
+
+import portage
+
 from .use import get_package_flags, get_use_combinations
 
 
-def temp_portage_config(directory_name):
+def get_etc_portage_tmp_file(directory_name):
     target_location = os.path.join('/etc/portage', directory_name)
 
     if not os.path.isdir(target_location):
         edie("The location {} needs to exist and be a directory".format(target_location))
 
-    fd = NamedTemporaryFile(
+    handler = NamedTemporaryFile(
         mode='w',
         prefix='zzz_pkg_testing_tool_',
         dir=target_location
     )
+
     umask = os.umask(0)
     os.umask(umask)
-    os.chmod(fd.name, 0o644 & ~umask)
-    return fd
+    os.chmod(handler.name, 0o644 & ~umask)
+
+    return handler
 
 
 def process_args():
@@ -130,33 +135,35 @@ def run_testing(package_metadata, use_flags_scope, flags_set, test_feature_toggl
     else:
         env['FEATURES'] = features
 
-    with \
-        temp_portage_config('package.use') as tmp_package_use, \
-        temp_portage_config('package.env') as tmp_package_env, \
-        temp_portage_config('env') as tmp_portage_env:
+    with ExitStack() as stack:
+        tmp_files = {}
 
-            if test_feature_toggle:
-                tmp_portage_env.write('FEATURES="test"\n')
-                tmp_portage_env.flush()
+        for directory in ['env', 'package.env', 'package.use']:
+            tmp_files[directory] = stack.enter_context(get_etc_portage_tmp_file(directory))
 
-                tmp_package_env.write(
-                    "{cp} {env_file}\n".format(
-                        cp=package_metadata['cp'],
-                        env_file=os.path.basename(tmp_portage_env.name)
-                    )
+        if test_feature_toggle:
+            tmp_files['env'].write('FEATURES="test"\n')
+
+        tmp_files['package.env'].write(
+            "{cp} {env_file}\n".format(
+                cp=package_metadata['cp'],
+                env_file=os.path.basename(tmp_files['env'].name)
+            )
+        )
+
+        if flags_set:
+            tmp_files['package.use'].write(
+                '{prefix} {flags}\n'.format(
+                    prefix=('*/*' if use_flags_scope == 'global' else package_metadata['atom']),
+                    flags=" ".join(flags_set)
                 )
-                tmp_package_env.flush()
+            )
 
-            if flags_set:
-                tmp_package_use.write(
-                    '{prefix} {flags}\n'.format(
-                        prefix=('*/*' if use_flags_scope == 'global' else package_metadata['atom']),
-                        flags=" ".join(flags_set)
-                    )
-                )
-                tmp_package_use.flush()
-            emerge_result = subprocess.run(emerge_cmdline, env=env)
-            print('')
+        for handler in tmp_files:
+            tmp_files[handler].flush()
+
+        emerge_result = subprocess.run(emerge_cmdline, env=env)
+        print('')
 
     return {
         'use_flags': " ".join(flags_set),
@@ -236,22 +243,24 @@ def pkg_testing_tool(args, extra_args):
 
     # Unconditionally unmask and keyword packages selected by atom.
     # No much of a reason to check what arch we're running or if package is masked in first place.
-    with \
-        temp_portage_config('package.accept_keywords') as tmp_package_accept_keywords, \
-        temp_portage_config('package.unmask') as tmp_package_unmask:
+    with ExitStack() as stack:
+        tmp_files = {}
 
-            # Unmask and keyword all the packages prior to testing them.
-            for atom in args.package_atom:
-                tmp_package_accept_keywords.write("{atom} **\n".format(atom=atom))
-                tmp_package_unmask.write("{atom}\n".format(atom=atom))
+        for directory in ['package.accept_keywords', 'package.unmask']:
+            tmp_files[directory] = stack.enter_context(get_etc_portage_tmp_file(directory))
 
-            tmp_package_accept_keywords.flush()
-            tmp_package_unmask.flush()
+        # Unmask and keyword all the packages prior to testing them.
+        for atom in args.package_atom:
+            tmp_files['package.accept_keywords'].write("{atom} **\n".format(atom=atom))
+            tmp_files['package.unmask'].write("{atom}\n".format(atom=atom))
 
-            for atom in args.package_atom:
-                results.extend(
-                    test_package(atom, args)
-                )
+        for handler in tmp_files:
+            tmp_files[handler].flush()
+
+        for atom in args.package_atom:
+            results.extend(
+                test_package(atom, args)
+            )
 
     failures = []
     for item in results:
