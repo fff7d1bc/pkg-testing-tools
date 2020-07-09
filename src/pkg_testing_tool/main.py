@@ -43,6 +43,11 @@ def process_args():
     optional = parser.add_argument_group('Optional')
 
     optional.add_argument(
+        '--ask', action='store_true', required=False,
+        help="Ask for confirmation before executing actual tests."
+    )
+
+    optional.add_argument(
         '--append-required-use', action='store', type=str, required=False,
         help="Append REQUIRED_USE entries, useful for blacklisting flags, like '!systemd !libressl' on systems that runs neither. The more complex REQUIRED_USE, the longer it take to get USE flags combinations."
     )
@@ -70,7 +75,7 @@ def process_args():
     args, extra_args = parser.parse_known_args()
     if extra_args:
         if extra_args[0] != '--':
-            parser.error(f"Custom arguments that are meant to be passed to mksquashfs are to be palced after '--'.")
+            parser.error("Custom arguments that are meant to be passed to pkg-testing-tool are to be palced after '--'.")
         extra_args.remove('--')
 
     if len(sys.argv) == 1:
@@ -114,16 +119,16 @@ def get_package_metadata(atom):
     }
 
 
-def run_testing(package_metadata, use_flags_scope, flags_set, test_feature_toggle):
+def run_testing(job):
     time_started = datetime.datetime.now().replace(microsecond=0).isoformat()
 
     emerge_cmdline = [
         'emerge',
         '--verbose', 'y',
         '--autounmask', 'n',
-        '--usepkg-exclude', package_metadata['cp'],
+        '--usepkg-exclude', job['cp'],
         '--deep', '--backtrack', '300',
-        package_metadata['atom']
+        job['cpv']
     ]
 
     env = os.environ.copy()
@@ -141,21 +146,21 @@ def run_testing(package_metadata, use_flags_scope, flags_set, test_feature_toggl
         for directory in ['env', 'package.env', 'package.use']:
             tmp_files[directory] = stack.enter_context(get_etc_portage_tmp_file(directory))
 
-        if test_feature_toggle:
+        if job['test_feature_toggle']:
             tmp_files['env'].write('FEATURES="test"\n')
 
         tmp_files['package.env'].write(
             "{cp} {env_file}\n".format(
-                cp=package_metadata['cp'],
+                cp=job['cp'],
                 env_file=os.path.basename(tmp_files['env'].name)
             )
         )
 
-        if flags_set:
+        if job['use_flags']:
             tmp_files['package.use'].write(
                 '{prefix} {flags}\n'.format(
-                    prefix=('*/*' if use_flags_scope == 'global' else package_metadata['atom']),
-                    flags=" ".join(flags_set)
+                    prefix=('*/*' if job['use_flags_scope'] == 'global' else job['cpv']),
+                    flags=" ".join(job['use_flags'])
                 )
             )
 
@@ -166,13 +171,13 @@ def run_testing(package_metadata, use_flags_scope, flags_set, test_feature_toggl
         print('')
 
     return {
-        'use_flags': " ".join(flags_set),
+        'use_flags': " ".join(job['use_flags']),
         'exit_code': emerge_result.returncode,
         'features': portage.settings.get('FEATURES'),
         'emerge_default_opts': portage.settings.get('EMERGE_DEFAULT_OPTS'),
         'emerge_cmdline': " ".join(emerge_cmdline),
-        'test_feature_toggle': test_feature_toggle,
-        'atom': package_metadata['atom'],
+        'test_feature_toggle': job['test_feature_toggle'],
+        'atom': job['cpv'],
         'time': {
             'started': time_started,
             'finished': datetime.datetime.now().replace(microsecond=0).isoformat(),
@@ -180,8 +185,8 @@ def run_testing(package_metadata, use_flags_scope, flags_set, test_feature_toggl
     }
 
 
-def test_package(atom, args):
-    results = []
+def define_jobs(atom, args):
+    jobs = []
 
     package_metadata = get_package_metadata(atom)
 
@@ -199,43 +204,59 @@ def test_package(atom, args):
         else:
             test_feature_toggle = False
 
-        use_combinations_pass = 0
         for flags_set in use_combinations:
-            use_combinations_pass += 1
-            einfo(
-                "Running {pass_num} of {total} build for '{package}' with '{flags}' USE flags ...".format(
-                    pass_num=use_combinations_pass,
-                    total=len(use_combinations),
-                    package=package_metadata['atom'],
-                    flags=" ".join(flags_set)
-                )
-            )
 
-            results.append(
-                run_testing(package_metadata, args.use_flags_scope, flags_set, test_feature_toggle)
+            jobs.append(
+                {
+                    'cpv': atom,
+                    'cp': package_metadata['cp'],
+                    'test_feature_toggle': test_feature_toggle,
+                    'use_flags': flags_set,
+                    'use_flags_scope': args.use_flags_scope
+                }
             )
 
         if package_metadata['has_tests'] and args.test_feature_scope == 'once':
-            einfo(
-                "Additional run for '{package}' with FEATURES=test and default USE flags since test-feature-scope is set to 'once'.".format(
-                    package=package_metadata['atom'])
-                )
-            results.append(
-                run_testing(package_metadata, args.use_flags_scope, [], True)
+            jobs.append(
+                {
+                    'cpv': atom,
+                    'cp': package_metadata['cp'],
+                    'test_feature_toggle': True,
+                    'use_flags': [],
+                    'use_flags_scope': args.use_flags_scope
+                }
             )
     else:
         if not package_metadata['has_tests'] or args.test_feature_scope == 'never':
-            einfo("Running build for '{package}' with default USE flags ...".format(package=package_metadata['atom']))
-            results.append(
-                run_testing(package_metadata, args.use_flags_scope, [], False)
+            jobs.append(
+                {
+                    'cpv': atom,
+                    'cp': package_metadata['cp'],
+                    'test_feature_toggle': False,
+                    'use_flags': [],
+                    'use_flags_scope': args.use_flags_scope
+                }
             )
         else:
-            einfo("Running build for '{package}' with default USE flags and FEATURES=test ...".format(package=package_metadata['atom']))
-            results.append(
-                run_testing(package_metadata, args.use_flags_scope, [], True)
+            jobs.append(
+                {
+                    'cpv': atom,
+                    'cp': package_metadata['cp'],
+                    'test_feature_toggle': True,
+                    'use_flags': []
+                }
             )
 
-    return results
+    return jobs
+
+
+def yes_no(question):
+    reply = input(question).lower()
+
+    if reply == 'y':
+        return True
+
+    return False
 
 
 def pkg_testing_tool(args, extra_args):
@@ -249,17 +270,50 @@ def pkg_testing_tool(args, extra_args):
         for directory in ['package.accept_keywords', 'package.unmask']:
             tmp_files[directory] = stack.enter_context(get_etc_portage_tmp_file(directory))
 
-        # Unmask and keyword all the packages prior to testing them.
+        jobs = []
+
         for atom in args.package_atom:
+            # Unmask and keyword all the packages prior to testing them.
             tmp_files['package.accept_keywords'].write("{atom} **\n".format(atom=atom))
             tmp_files['package.unmask'].write("{atom}\n".format(atom=atom))
+
+            for new_job in define_jobs(atom, args):
+                jobs.append(new_job)
 
         for handler in tmp_files:
             tmp_files[handler].flush()
 
-        for atom in args.package_atom:
-            results.extend(
-                test_package(atom, args)
+        padding = max(len(i['cpv']) for i in jobs) + 3
+
+        einfo("Following testing jobs will be executed:")
+        for job in jobs:
+            print(
+                "{cpv:<{padding}} USE: {use_flags}{test_feature}".format(
+                    cpv=job['cpv'],
+                    use_flags=("<default flags>" if not job['use_flags'] else " ".join(job['use_flags'])),
+                    test_feature=(", FEATURES: test" if job['test_feature_toggle'] else ""),
+                    padding=padding,
+                )
+            )
+
+        if args.ask:
+            if not yes_no('>>> Do you want to continue? [y/N]: '):
+                sys.exit(1)
+
+        i = 0
+        for job in jobs:
+            i += 1
+            einfo(
+                "Running ({i} of {max_i}) {cpv} with USE: {use_flags}{test_feature}".format(
+                    i=i,
+                    max_i=len(jobs),
+                    cpv=job['cpv'],
+                    use_flags=("<default flags>" if not job['use_flags'] else " ".join(job['use_flags'])),
+                    test_feature=(", FEATURES: test" if job['test_feature_toggle'] else ""),
+                )
+            )
+            results.append(
+                run_testing(job)
             )
 
     failures = []
