@@ -72,6 +72,11 @@ def process_args():
         help="Save report in JSON format under specified path."
     )
 
+    optional.add_argument(
+        '--extra-env-file', action='append', type=str, required=False,
+        help="Extra /etc/portage/env/ file name, to be used while testing packages. Can be passed multile times."
+    )
+
     args, extra_args = parser.parse_known_args()
     if extra_args:
         if extra_args[0] != '--':
@@ -133,26 +138,29 @@ def run_testing(job):
 
     env = os.environ.copy()
 
-    features = 'multilib-strict collision-protect sandbox userpriv usersandbox'
-
-    if 'FEATURES' in env:
-        env['FEATURES'] = "{} {}".format(env['FEATURES'], features)
-    else:
-        env['FEATURES'] = features
-
     with ExitStack() as stack:
         tmp_files = {}
 
         for directory in ['env', 'package.env', 'package.use']:
             tmp_files[directory] = stack.enter_context(get_etc_portage_tmp_file(directory))
 
+        tested_cpv_features = ['qa-unresolved-soname-deps', 'multilib-strict']
+
         if job['test_feature_toggle']:
-            tmp_files['env'].write('FEATURES="test"\n')
+            tested_cpv_features.append('test')
+
+        if tested_cpv_features:
+            tmp_files['env'].write('FEATURES="{}"\n'.format(" ".join(tested_cpv_features)))
+
+        env_files = [os.path.basename(tmp_files['env'].name)]
+
+        if job['extra_env_files']:
+            env_files.append(job['extra_env_files'])
 
         tmp_files['package.env'].write(
-            "{cp} {env_file}\n".format(
+            "{cp} {env_files}\n".format(
                 cp=job['cp'],
-                env_file=os.path.basename(tmp_files['env'].name)
+                env_files=" ".join(env_files)
             )
         )
 
@@ -190,6 +198,12 @@ def define_jobs(atom, args):
 
     package_metadata = get_package_metadata(atom)
 
+    common = {
+        'cpv': atom,
+        'cp': package_metadata['cp'],
+        'extra_env_files': ( " ".join(args.extra_env_file) if args.extra_env_file else [] )
+    }
+
     if args.append_required_use:
         package_metadata['ruse'].append(args.append_required_use)
 
@@ -205,47 +219,50 @@ def define_jobs(atom, args):
             test_feature_toggle = False
 
         for flags_set in use_combinations:
-
-            jobs.append(
+            job = {}
+            job.update(common)
+            job.update(
                 {
-                    'cpv': atom,
-                    'cp': package_metadata['cp'],
                     'test_feature_toggle': test_feature_toggle,
                     'use_flags': flags_set,
                     'use_flags_scope': args.use_flags_scope
                 }
             )
+            jobs.append(job)
 
         if package_metadata['has_tests'] and args.test_feature_scope == 'once':
-            jobs.append(
+            job = {}
+            job.update(common)
+            job.update(
                 {
-                    'cpv': atom,
-                    'cp': package_metadata['cp'],
                     'test_feature_toggle': True,
                     'use_flags': [],
                     'use_flags_scope': args.use_flags_scope
                 }
             )
+            jobs.append(job)
     else:
         if not package_metadata['has_tests'] or args.test_feature_scope == 'never':
-            jobs.append(
+            job = {}
+            job.update(common)
+            job.update(
                 {
-                    'cpv': atom,
-                    'cp': package_metadata['cp'],
                     'test_feature_toggle': False,
                     'use_flags': [],
                     'use_flags_scope': args.use_flags_scope
                 }
             )
+            jobs.append(job)
         else:
-            jobs.append(
+            job = {}
+            job.update(common)
+            job.update(
                 {
-                    'cpv': atom,
-                    'cp': package_metadata['cp'],
                     'test_feature_toggle': True,
                     'use_flags': []
                 }
             )
+            jobs.append(job)
 
     return jobs
 
