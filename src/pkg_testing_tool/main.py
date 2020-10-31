@@ -197,16 +197,16 @@ def run_testing(job, args):
         for handler in tmp_files:
             tmp_files[handler].flush()
 
-    env = os.environ.copy()
+        env = os.environ.copy()
 
-    if global_features:
-        if 'FEATURES' in env:
-            env['FEATURES'] = "{} {}".format(env['FEATURES'], " ".join(global_features))
-        else:
-            env['FEATURES'] = " ".join(global_features)
+        if global_features:
+            if 'FEATURES' in env:
+                env['FEATURES'] = "{} {}".format(env['FEATURES'], " ".join(global_features))
+            else:
+                env['FEATURES'] = " ".join(global_features)
 
-        emerge_result = subprocess.run(emerge_cmdline, env=env)
-        print('')
+            emerge_result = subprocess.run(emerge_cmdline, env=env)
+            print('')
 
     return {
         'use_flags': " ".join(job['use_flags']),
