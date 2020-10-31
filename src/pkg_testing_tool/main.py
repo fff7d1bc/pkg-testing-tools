@@ -48,6 +48,16 @@ def process_args():
     )
 
     optional.add_argument(
+        '--binpkg', action='store_true', required=False,
+        help="Append --usepkg to emerge command and add buildpkg to FEATURES."
+    )
+
+    optional.add_argument(
+        '--ccache', action='store_true', required=False,
+        help="Add ccache to FEATURES."
+    )
+
+    optional.add_argument(
         '--append-required-use', action='store', type=str, required=False,
         help="Append REQUIRED_USE entries, useful for blacklisting flags, like '!systemd !libressl' on systems that runs neither. The more complex REQUIRED_USE, the longer it take to get USE flags combinations."
     )
@@ -124,7 +134,9 @@ def get_package_metadata(atom):
     }
 
 
-def run_testing(job):
+def run_testing(job, args):
+    global_features = []
+
     time_started = datetime.datetime.now().replace(microsecond=0).isoformat()
 
     emerge_cmdline = [
@@ -133,10 +145,20 @@ def run_testing(job):
         '--autounmask', 'n',
         '--usepkg-exclude', job['cp'],
         '--deep', '--backtrack', '300',
-        job['cpv']
     ]
 
-    env = os.environ.copy()
+    if args.binpkg:
+        emerge_cmdline.append('--usepkg')
+        global_features.append('buildpkg')
+
+    if args.ccache:
+        if not portage.settings.get('CCACHE_DIR') or not portage.settings.get('CCACHE_SIZE'):
+            eerror("The CCACHE_DIR and/or CCACHE_SIZE is not set!")
+            sys.exit(1)
+            
+        global_features.append('ccache')
+
+    emerge_cmdline.append(job['cpv'])
 
     with ExitStack() as stack:
         tmp_files = {}
@@ -174,6 +196,14 @@ def run_testing(job):
 
         for handler in tmp_files:
             tmp_files[handler].flush()
+
+    env = os.environ.copy()
+
+    if global_features:
+        if 'FEATURES' in env:
+            env['FEATURES'] = "{} {}".format(env['FEATURES'], " ".join(global_features))
+        else:
+            env['FEATURES'] = " ".join(global_features)
 
         emerge_result = subprocess.run(emerge_cmdline, env=env)
         print('')
@@ -330,7 +360,7 @@ def pkg_testing_tool(args, extra_args):
                 )
             )
             results.append(
-                run_testing(job)
+                run_testing(job, args)
             )
 
     failures = []
