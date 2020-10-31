@@ -23,9 +23,6 @@ install -m 0750 -o portage -g portage -d /etc/portage/env /etc/portage/package.{
 It's highly recommend to use `pkg-testing-tool` along with `binpkgs`, `ccache` and parallel `emerge` jobs, especially when using a clean environment like chroot or virtual machine with shared binary packages. Unless `make.conf` already have all of those enabled, one can use something like the code below to switch those features on, although it should be tweaked depending on one's capacity:
 
 ```
-export FEATURES="${FEATURES} ccache buildpkg"
-export EMERGE_DEFAULT_OPTS="${EMERGE_DEFAULT_OPTS} --binpkg-changed-deps --binpkg-respect-use --usepkg"
-export EMERGE_DEFAULT_OPTS="${EMERGE_DEFAULT_OPTS} --jobs $(( $(nproc) / 4 + 1 )) --load-average $(nproc)"
 export PKGDIR="/var/cache/binpkgs"
 export CCACHE_DIR="/var/cache/ccache"
 export CCACHE_SIZE="4G"
@@ -39,6 +36,7 @@ install -m 0750 -o portage -g portage -d "${CCACHE_DIR}"
 Rather paranoid run of `git` without libressl, with json report saved to file, with FEATURES=test enabled on every run
 ```
 pkg-testing-tool \
+    --binpkg --ccache \
     --package-atom  '=dev-vcs/git-2.23.0-r1' \
     --append-required-use '!libressl' \
     --report /tmp/test-git-2.23.0-r1.json \
@@ -49,42 +47,3 @@ pkg-testing-tool \
 Local to package atom flags are sometimes not desired, especially when one flag on package we test requires the same flag on it's dependencies. For this, one should switch to global flags, that work as if someone set the `$USE` environmental variable with them.
 ```
 pkg-testing-tool --use-flags-scope global --package-atom '=dev-libs/boost-1.71.0'
-```
-
-## Switches
-
-```
-    usage: pkg-testing-tool [-h] -p PACKAGE_ATOM
-                            [--append-required-use APPEND_REQUIRED_USE]
-                            [--max-use-combinations MAX_USE_COMBINATIONS]
-                            [--use-flags-scope {local,global}]
-                            [--test-feature-scope {once,always,never}]
-                            [--report REPORT]
-    
-    optional arguments:
-      -h, --help            show this help message and exit
-    
-    Required:
-      -p PACKAGE_ATOM, --package-atom PACKAGE_ATOM
-                            Valid Portage package atom, like '=app-
-                            category/foo-1.2.3'. Can be specified multiple times
-                            to unmask/keyword all of them and test them one by
-                            one.
-    
-    Optional:
-      --append-required-use APPEND_REQUIRED_USE
-                            Append REQUIRED_USE entries, useful for blacklisting
-                            flags, like '!systemd !libressl' on systems that runs
-                            neither. The more complex REQUIRED_USE, the longer it
-                            take to get USE flags combinations.
-      --max-use-combinations MAX_USE_COMBINATIONS
-                            Generate up to N combinations of USE flags, the
-                            combinations are random out of those which pass check
-                            for REQUIRED_USE. Default: 16.
-      --use-flags-scope {local,global}
-                            Local sets USE flags for package specified by atom,
-                            global sets flags for */*.
-      --test-feature-scope {once,always,never}
-                            Enables FEATURES='test' once, for default use flags,
-                            always, for every run or never. Default: once.
-```
