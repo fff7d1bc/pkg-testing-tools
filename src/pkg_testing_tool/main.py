@@ -205,8 +205,8 @@ def run_testing(job, args):
             else:
                 env['FEATURES'] = " ".join(global_features)
 
-            emerge_result = subprocess.run(emerge_cmdline, env=env)
-            print('')
+        emerge_result = subprocess.run(emerge_cmdline, env=env)
+        print('')
 
     return {
         'use_flags': " ".join(job['use_flags']),
