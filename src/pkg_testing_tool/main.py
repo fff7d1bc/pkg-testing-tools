@@ -288,6 +288,16 @@ def define_jobs(atom, args):
             job.update(common)
             job.update(
                 {
+                    'test_feature_toggle': False,
+                    'use_flags': []
+                }
+            )
+            jobs.append(job)
+
+            job = {}
+            job.update(common)
+            job.update(
+                {
                     'test_feature_toggle': True,
                     'use_flags': []
                 }
