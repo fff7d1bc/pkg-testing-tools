@@ -148,7 +148,6 @@ def run_testing(job, args):
     emerge_cmdline = [
         'emerge',
         '--verbose', 'y',
-        '--autounmask', 'n',
         '--usepkg-exclude', job['cp'],
         '--deep', '--backtrack', '300',
     ]
