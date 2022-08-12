@@ -6,6 +6,7 @@ import subprocess
 import sys
 from contextlib import ExitStack
 from tempfile import NamedTemporaryFile
+import shlex
 
 import portage
 
@@ -87,6 +88,11 @@ def process_args():
         help="Extra /etc/portage/env/ file name, to be used while testing packages. Can be passed multile times."
     )
 
+    optional.add_argument(
+        '--append-emerge', action='store', type=str, required=False,
+        help="Append flags or parameters to the actual emerge call."
+    )
+
     args, extra_args = parser.parse_known_args()
     if extra_args:
         if extra_args[0] != '--':
@@ -146,6 +152,8 @@ def run_testing(job, args):
         '--usepkg-exclude', job['cp'],
         '--deep', '--backtrack', '300',
     ]
+    if args.append_emerge:
+        emerge_cmdline += shlex.split(args.append_emerge)
 
     if args.binpkg:
         emerge_cmdline.append('--usepkg')
