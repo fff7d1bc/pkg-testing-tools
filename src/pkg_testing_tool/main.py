@@ -244,7 +244,7 @@ def define_jobs(atom, args):
     if args.append_required_use:
         package_metadata['ruse'].append(args.append_required_use)
 
-    if package_metadata['iuse']:
+    if package_metadata['iuse'] and args.max_use_combinations > 1:
         use_combinations = get_use_combinations(package_metadata['iuse'], package_metadata['ruse'], args.max_use_combinations)
     else:
         use_combinations = None
